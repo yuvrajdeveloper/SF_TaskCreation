@@ -1,0 +1,40 @@
+
+
+trigger RecentLeadTask on Lead (after insert) {
+    
+    List<String> listlead = new List<String>();  
+    Map<Id,Lead> maplead = new Map<Id,Lead>();
+    
+    for(Lead l:Trigger.new){
+        listlead.add(l.Email);
+        maplead.put(l.Id,l);
+    }
+    
+    List<Account> listacc = [SELECT Email__c, OwnerId FROM Account WHERE Email__c in : listlead ORDER BY LastModifiedDate DESC];
+    Map<String,String> mapacc = new Map<String,String>();
+    
+    for(Account ac : listacc){
+        if(!mapacc.containsKey(ac.Email__c)){
+            mapacc.put(ac.Email__c, ac.OwnerId);
+        }
+    }
+    
+    List<Lead> leown = [SELECT OwnerId,Email FROM Lead WHERE Id in :maplead.keySet() AND Email in : mapacc.keySet()] ;
+    List<Task> taskList = new List<Task>();
+    
+    for(Lead lea : leown) {
+        if(mapacc.containsKey(lea.Email)){
+            lea.OwnerId =mapacc.get(lea.Email);            
+            Task newTask = new Task();
+            newTask.WhoId = lea.Id;
+            newTask.Subject = 'Duplicate Phone Number';
+            newTask.ActivityDate = System.today() + 3;
+            newTask.OwnerId = mapacc.get(lea.Email);
+            taskList.add(newTask);
+            
+        }
+        
+    }update leown;
+    Insert taskList;
+
+}
