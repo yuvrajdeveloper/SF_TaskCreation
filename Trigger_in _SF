@@ -1,8 +1,8 @@
 //Task creation based on Account lastmodifiedby ID which has a duplicate phone number in Account.
 
 
-rigger RecentAccountTask on Account (After insert) {
-    Account a = new Account();
+trigger RecentAccountTask on Account (After insert) {
+    
     List<String> acfone = new List<String>();
     Map<Id,Account> mapfone = new Map<Id,Account>();
     Map<String,String> newacc = new Map<String,String>();
@@ -11,16 +11,27 @@ rigger RecentAccountTask on Account (After insert) {
         mapfone.put(ac.Id, ac);    
         
     }
-    List<Account> lsac = [SELECT Id, OwnerId, Phone FROM Account where Phone IN : acfone AND Id NOT IN : mapfone.keySet() ORDER BY LastModifiedDate DESC LIMIT 1];
+    List<Account> lsac = [SELECT Id, OwnerId, Phone FROM Account where Phone IN : acfone AND Id NOT IN : mapfone.keySet() ORDER BY LastModifiedDate DESC];
     if(lsac.size()>0){
-        newacc.put(a.Phone, a.OwnerId);
+        for(Account test:lsac)
+            if(!newacc.containsKey(test.Phone)){
+                newacc.put(test.Phone, test.OwnerId);}
     }    
-    List<Account> acown = [SELECT Id,OwnerId FROM Account WHERE Phone in :newacc.keySet()];
+    List<Account> acown = [SELECT Id,OwnerId,Phone FROM Account WHERE Phone in :newacc.keySet()];
+    List<Task> taskList = new List<Task>();
     
     for(Account aco : acown){
-         Task tas = new Task();
-        tas.OwnerId = newacc.get(aco.Phone);
-        aco.OwnerId = newacc.get(aco.Phone);
-    }
+        if(newacc.containsKey(aco.Phone)){
+            aco.OwnerId =newacc.get(aco.Phone);            
+            Task newTask = new Task();
+            newTask.WhatId = aco.Id;
+            newTask.Subject = 'Duplicate Phone Number';
+            newTask.ActivityDate = System.today() + 3;
+            newTask.OwnerId = newacc.get(aco.Phone);
+            taskList.add(newTask);
+        }
+       
+    } update acown;
+    insert taskList;
     
 }
